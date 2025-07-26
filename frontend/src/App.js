@@ -3,6 +3,7 @@ import './App.css';
 import Header from './components/Header';
 import CatalogSection from './components/CatalogSection';
 import ContentCreator from './components/ContentCreator';
+import ChatBot from './components/ChatBot';
 import { Toaster } from './components/ui/toaster';
 
 function App() {
@@ -14,6 +15,8 @@ function App() {
         return <CatalogSection />;
       case 'content':
         return <ContentCreator />;
+      case 'chat':
+        return <ChatBot />;
       case 'gallery':
         return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
           <div className="max-w-4xl mx-auto text-center">

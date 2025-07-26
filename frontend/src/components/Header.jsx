@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Leaf, Camera, Sparkles } from 'lucide-react';
+import { Menu, X, Leaf, Camera, Sparkles, MessageCircle } from 'lucide-react';
 import { Button } from './ui/button';
 
 const Header = ({ currentSection, setCurrentSection }) => {
@@ -8,6 +8,7 @@ const Header = ({ currentSection, setCurrentSection }) => {
   const navigation = [
     { name: 'Catálogo', key: 'catalog', icon: Leaf },
     { name: 'Crear Contenido', key: 'content', icon: Sparkles },
+    { name: 'Chat Experta', key: 'chat', icon: MessageCircle },
     { name: 'Galería', key: 'gallery', icon: Camera },
     { name: 'Branding', key: 'branding', icon: Leaf }
   ];
