@@ -1,10 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Leaf, Globe, BookOpen, Microscope, Camera, MapPin } from 'lucide-react';
+import { Send, Bot, User, Leaf, Globe, BookOpen, Microscope, Camera, MapPin, Loader } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
+import { useToast } from '../hooks/use-toast';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const ChatBot = () => {
   const [messages, setMessages] = useState([
