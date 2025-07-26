@@ -1,30 +1,58 @@
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Camera, Upload, Sparkles, Heart, Star } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit, Trash2, Camera, Upload, Sparkles, Heart, Star, Loader } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { mockSucculents, mockPricing } from './mock/mockData';
+import { useToast } from '../hooks/use-toast';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const CatalogSection = () => {
-  const [succulents, setSucculents] = useState(mockSucculents);
+  const [succulents, setSucculents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [generating, setGenerating] = useState(false);
+  const { toast } = useToast();
   
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     care: '',
-    image: '',
+    image_base64: '',
     category: '',
     difficulty: 'Fácil'
   });
 
   const categories = ['all', ...new Set(succulents.map(s => s.category))];
   const difficulties = ['Muy Fácil', 'Fácil', 'Intermedio', 'Avanzado'];
+
+  // Fetch succulents from backend
+  const fetchSucculents = async () => {
+    try {
+      const response = await axios.get(`${API}/succulents`);
+      setSucculents(response.data);
+    } catch (error) {
+      console.error('Error fetching succulents:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las suculentas",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSucculents();
+  }, []);
 
   const filteredSucculents = succulents.filter(succulent => {
     const matchesSearch = succulent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -33,29 +61,52 @@ const CatalogSection = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingId) {
-      setSucculents(succulents.map(s => 
-        s.id === editingId ? { ...s, ...formData } : s
-      ));
+    setLoading(true);
+    
+    try {
+      if (editingId) {
+        // Update existing succulent
+        await axios.put(`${API}/succulents/${editingId}`, formData);
+        toast({
+          title: "¡Éxito!",
+          description: "Suculenta actualizada correctamente",
+        });
+      } else {
+        // Create new succulent
+        await axios.post(`${API}/succulents`, formData);
+        toast({
+          title: "¡Éxito!",
+          description: "Suculenta creada correctamente",
+        });
+      }
+      
+      // Refresh data
+      await fetchSucculents();
+      
+      // Reset form
+      setFormData({
+        name: '',
+        description: '',
+        care: '',
+        image_base64: '',
+        category: '',
+        difficulty: 'Fácil'
+      });
+      setIsAdding(false);
       setEditingId(null);
-    } else {
-      const newSucculent = {
-        id: Date.now(),
-        ...formData
-      };
-      setSucculents([...succulents, newSucculent]);
+      
+    } catch (error) {
+      console.error('Error saving succulent:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la suculenta",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-    setFormData({
-      name: '',
-      description: '',
-      care: '',
-      image: '',
-      category: '',
-      difficulty: 'Fácil'
-    });
-    setIsAdding(false);
   };
 
   const handleEdit = (succulent) => {
@@ -64,8 +115,99 @@ const CatalogSection = () => {
     setIsAdding(true);
   };
 
-  const handleDelete = (id) => {
-    setSucculents(succulents.filter(s => s.id !== id));
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta suculenta?')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${API}/succulents/${id}`);
+      toast({
+        title: "¡Éxito!",
+        description: "Suculenta eliminada correctamente",
+      });
+      await fetchSucculents();
+    } catch (error) {
+      console.error('Error deleting succulent:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la suculenta",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setGenerating(true);
+      const response = await axios.post(`${API}/upload-image`, formData);
+      setFormData(prev => ({
+        ...prev,
+        image_base64: response.data.image_base64
+      }));
+      toast({
+        title: "¡Éxito!",
+        description: "Imagen cargada correctamente",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la imagen",
+        variant: "destructive"
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generateImageAI = async () => {
+    if (!formData.name || !formData.description) {
+      toast({
+        title: "Error",
+        description: "Necesitas completar el nombre y descripción primero",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      const response = await axios.post(`${API}/generate-succulent-image`, {
+        succulent_name: formData.name,
+        description: formData.description,
+        provider: 'openai'
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        image_base64: response.data.image_base64
+      }));
+      
+      toast({
+        title: "¡Éxito!",
+        description: "Imagen generada con IA correctamente",
+      });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo generar la imagen",
+        variant: "destructive"
+      });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -77,6 +219,17 @@ const CatalogSection = () => {
       default: return 'bg-gray-500';
     }
   };
+
+  if (loading && succulents.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-pink-50 to-purple-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 animate-spin text-green-600 mx-auto mb-4" />
+          <p className="text-xl text-gray-600">Cargando suculentas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-pink-50 to-purple-50 p-6">
@@ -216,24 +369,68 @@ const CatalogSection = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Imagen</label>
                   <div className="flex gap-4">
-                    <Button type="button" variant="outline" className="flex-1">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Cargar desde disco
-                    </Button>
-                    <Button type="button" variant="outline" className="flex-1">
-                      <Camera className="w-4 h-4 mr-2" />
-                      Tomar foto
-                    </Button>
-                    <Button type="button" variant="outline" className="flex-1">
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generar con IA
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <Button type="button" variant="outline" className="w-full" asChild>
+                          <span>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Cargar desde disco
+                          </span>
+                        </Button>
+                      </label>
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={generateImageAI}
+                      disabled={generating}
+                    >
+                      {generating ? (
+                        <>
+                          <Loader className="w-4 h-4 mr-2 animate-spin" />
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generar con IA
+                        </>
+                      )}
                     </Button>
                   </div>
+                  {formData.image_base64 && (
+                    <div className="mt-4">
+                      <img 
+                        src={`data:image/png;base64,${formData.image_base64}`} 
+                        alt="Preview" 
+                        className="w-32 h-32 object-cover rounded-lg border-2 border-green-200"
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex gap-4">
-                  <Button type="submit" className="bg-gradient-to-r from-green-500 to-purple-600 hover:from-green-600 hover:to-purple-700 text-white">
-                    {editingId ? 'Actualizar' : 'Agregar'}
+                  <Button 
+                    type="submit" 
+                    className="bg-gradient-to-r from-green-500 to-purple-600 hover:from-green-600 hover:to-purple-700 text-white"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        {editingId ? 'Actualizando...' : 'Creando...'}
+                      </>
+                    ) : (
+                      editingId ? 'Actualizar' : 'Agregar'
+                    )}
                   </Button>
                   <Button 
                     type="button" 
@@ -245,7 +442,7 @@ const CatalogSection = () => {
                         name: '',
                         description: '',
                         care: '',
-                        image: '',
+                        image_base64: '',
                         category: '',
                         difficulty: 'Fácil'
                       });
@@ -265,7 +462,7 @@ const CatalogSection = () => {
             <Card key={succulent.id} className="group overflow-hidden border-2 border-green-200 hover:border-purple-400 transition-all duration-300 hover:shadow-2xl transform hover:scale-105">
               <div className="relative overflow-hidden">
                 <img 
-                  src={succulent.image} 
+                  src={succulent.image_base64 ? `data:image/png;base64,${succulent.image_base64}` : succulent.image_url || "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=400&h=400&fit=crop"} 
                   alt={succulent.name}
                   className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
                 />
@@ -324,7 +521,7 @@ const CatalogSection = () => {
           ))}
         </div>
 
-        {filteredSucculents.length === 0 && (
+        {filteredSucculents.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🌵</div>
             <h3 className="text-2xl font-bold text-gray-600 mb-2">No se encontraron suculentas</h3>
