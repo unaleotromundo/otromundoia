@@ -1,52 +1,45 @@
-import { useEffect } from "react";
-import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React, { useState } from 'react';
+import './App.css';
+import Header from './components/Header';
+import CatalogSection from './components/CatalogSection';
+import ContentCreator from './components/ContentCreator';
+import { Toaster } from './components/ui/toaster';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+function App() {
+  const [currentSection, setCurrentSection] = useState('catalog');
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
+  const renderCurrentSection = () => {
+    switch (currentSection) {
+      case 'catalog':
+        return <CatalogSection />;
+      case 'content':
+        return <ContentCreator />;
+      case 'gallery':
+        return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">🖼️ Galería</h2>
+            <p className="text-xl text-gray-600">Próximamente: Galería de todas tus creaciones</p>
+          </div>
+        </div>;
+      case 'branding':
+        return <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-pink-50 p-6">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">🎨 Branding</h2>
+            <p className="text-xl text-gray-600">Próximamente: Gestión de logo y assets de marca</p>
+          </div>
+        </div>;
+      default:
+        return <CatalogSection />;
     }
   };
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
-
-function App() {
-  return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+    <div className="min-h-screen bg-gray-50">
+      <Header currentSection={currentSection} setCurrentSection={setCurrentSection} />
+      <main>
+        {renderCurrentSection()}
+      </main>
+      <Toaster />
     </div>
   );
 }
